@@ -1,0 +1,66 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+}
+
+enum IssueStatus {
+  BACKLOG
+  IN_PROGRESS
+  REVIEW
+  DONE
+}
+
+enum IssuePriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model User {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  email     String    @unique
+  password  String
+  projects  Project[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Project {
+  id          String        @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String
+  techStack   String[]
+  repoUrl     String?
+  status      ProjectStatus @default(PLANNING)
+  ownerId     String        @db.ObjectId
+  owner       User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  issues      Issue[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model Issue {
+  id          String        @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String
+  status      IssueStatus   @default(BACKLOG)
+  priority    IssuePriority @default(MEDIUM)
+  dueDate     DateTime?
+  projectId   String        @db.ObjectId
+  project     Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
