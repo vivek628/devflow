@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { AuthShell } from "@/components/auth/auth-shell";
+import { getUserFacingErrorMessage } from "@/lib/utils/client-errors";
 
 type SignupFormData = {
   name: string;
@@ -20,6 +21,22 @@ const initialFormData: SignupFormData = {
   password: "",
   confirmPassword: "",
 };
+
+async function readApiResponse<T>(response: Response): Promise<T> {
+  const contentType = response.headers.get("content-type") || "";
+  const rawBody = await response.text();
+
+  if (contentType.includes("application/json")) {
+    return JSON.parse(rawBody) as T;
+  }
+
+  const compactBody = rawBody.replace(/\s+/g, " ").trim();
+  throw new Error(
+    compactBody
+      ? `Server returned a non-JSON response: ${compactBody.slice(0, 180)}`
+      : "Server returned a non-JSON response",
+  );
+}
 
 export default function SignupPage() {
   const router = useRouter();
@@ -45,11 +62,11 @@ export default function SignupPage() {
         body: JSON.stringify(formData),
       });
 
-      const result = (await response.json()) as {
+      const result = await readApiResponse<{
         success: boolean;
         message: string;
         errors?: SignupErrors;
-      };
+      }>(response);
 
       if (!response.ok) {
         if (result.errors) {
@@ -66,8 +83,10 @@ export default function SignupPage() {
       window.setTimeout(() => {
         router.push("/login");
       }, 1200);
-    } catch {
-      setGeneralError("Network error. Please try again.");
+    } catch (error) {
+      setGeneralError(
+        getUserFacingErrorMessage(error, "Unable to create your account"),
+      );
     } finally {
       setIsSubmitting(false);
     }

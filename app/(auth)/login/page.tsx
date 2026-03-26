@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { AuthShell } from "@/components/auth/auth-shell";
+import { getUserFacingErrorMessage } from "@/lib/utils/client-errors";
 
 type LoginFormData = {
   email: string;
@@ -17,6 +18,22 @@ const initialFormData: LoginFormData = {
   email: "",
   password: "",
 };
+
+async function readApiResponse<T>(response: Response): Promise<T> {
+  const contentType = response.headers.get("content-type") || "";
+  const rawBody = await response.text();
+
+  if (contentType.includes("application/json")) {
+    return JSON.parse(rawBody) as T;
+  }
+
+  const compactBody = rawBody.replace(/\s+/g, " ").trim();
+  throw new Error(
+    compactBody
+      ? `Server returned a non-JSON response: ${compactBody.slice(0, 180)}`
+      : "Server returned a non-JSON response",
+  );
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -42,11 +59,11 @@ export default function LoginPage() {
         body: JSON.stringify(formData),
       });
 
-      const result = (await response.json()) as {
+      const result = await readApiResponse<{
         success: boolean;
         message: string;
         errors?: LoginErrors;
-      };
+      }>(response);
 
       if (!response.ok) {
         if (result.errors) {
@@ -63,8 +80,8 @@ export default function LoginPage() {
       window.setTimeout(() => {
         router.push("/dashboard");
       }, 1000);
-    } catch {
-      setGeneralError("Network error. Please try again.");
+    } catch (error) {
+      setGeneralError(getUserFacingErrorMessage(error, "Unable to sign in"));
     } finally {
       setIsSubmitting(false);
     }

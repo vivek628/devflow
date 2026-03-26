@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 
-import { signupUser } from "@/services/auth/signup.service";
-import { signupSchema } from "@/lib/validations/auth";
+import { getDatabaseErrorDetails } from "@/lib/db/prisma-errors";
+import { signupSchema, signupUser } from "@/modules/auth";
 
 export async function POST(request: Request) {
   try {
@@ -38,6 +38,20 @@ export async function POST(request: Request) {
           errors: error.flatten().fieldErrors,
         },
         { status: 400 },
+      );
+    }
+
+    const databaseError = getDatabaseErrorDetails(error);
+
+    if (databaseError) {
+      console.error("Signup database error:", error);
+
+      return NextResponse.json(
+        {
+          success: false,
+          message: databaseError.message,
+        },
+        { status: databaseError.status },
       );
     }
 
