@@ -55,7 +55,28 @@ export const createSubtaskSchema = z.object({
 
 export const updateSubtaskSchema = createSubtaskSchema;
 
+export const createSubtaskUpdateSchema = z.object({
+  summary: z
+    .string()
+    .trim()
+    .min(2, "Update summary is required")
+    .max(500, "Update summary must be 500 characters or fewer"),
+  timeLogMinutes: z.coerce
+    .number()
+    .int("Time log must be a whole number of minutes")
+    .min(1, "Time log must be at least 1 minute")
+    .max(1440, "Time log cannot exceed 1440 minutes"),
+  loggedAt: z
+    .string()
+    .trim()
+    .optional()
+    .refine((value) => !value || !Number.isNaN(Date.parse(value)), {
+      message: "Enter a valid logged date",
+    }),
+});
+
 export type CreateProjectInput = z.infer<typeof createProjectSchema>;
 export type UpdateProjectInput = z.infer<typeof updateProjectSchema>;
 export type CreateSubtaskInput = z.infer<typeof createSubtaskSchema>;
 export type UpdateSubtaskInput = z.infer<typeof updateSubtaskSchema>;
+export type CreateSubtaskUpdateInput = z.infer<typeof createSubtaskUpdateSchema>;

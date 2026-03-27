@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import {
   CreateProjectInput,
   CreateSubtaskInput,
+  CreateSubtaskUpdateInput,
   UpdateProjectInput,
   UpdateSubtaskInput,
 } from "@/modules/projects/projects.schemas";
@@ -15,6 +16,11 @@ export async function findProjectsByOwnerId(ownerId: string) {
     where: { ownerId },
     include: {
       subtasks: {
+        include: {
+          updates: {
+            orderBy: [{ loggedAt: "desc" }, { createdAt: "desc" }],
+          },
+        },
         orderBy: { createdAt: "desc" },
       },
     },
@@ -30,6 +36,11 @@ export async function findProjectByIdForOwner(projectId: string, ownerId: string
     },
     include: {
       subtasks: {
+        include: {
+          updates: {
+            orderBy: [{ loggedAt: "desc" }, { createdAt: "desc" }],
+          },
+        },
         orderBy: { createdAt: "desc" },
       },
     },
@@ -51,6 +62,11 @@ export async function createProjectForOwner(
     },
     include: {
       subtasks: {
+        include: {
+          updates: {
+            orderBy: [{ loggedAt: "desc" }, { createdAt: "desc" }],
+          },
+        },
         orderBy: { createdAt: "desc" },
       },
     },
@@ -72,6 +88,11 @@ export async function updateProjectById(
     },
     include: {
       subtasks: {
+        include: {
+          updates: {
+            orderBy: [{ loggedAt: "desc" }, { createdAt: "desc" }],
+          },
+        },
         orderBy: { createdAt: "desc" },
       },
     },
@@ -128,6 +149,24 @@ export async function updateSubtaskById(
       status: input.status,
       priority: input.priority,
       dueDate: mapDueDate(input.dueDate),
+    },
+  });
+}
+
+function mapLoggedAt(value?: string) {
+  return value ? new Date(value) : undefined;
+}
+
+export async function createUpdateForSubtask(
+  subtaskId: string,
+  input: CreateSubtaskUpdateInput,
+) {
+  return prisma.subtaskUpdate.create({
+    data: {
+      summary: input.summary,
+      timeLogMinutes: input.timeLogMinutes,
+      loggedAt: mapLoggedAt(input.loggedAt) ?? new Date(),
+      subtaskId,
     },
   });
 }

@@ -14,6 +14,7 @@ type Project = {
   status: string;
   techStack: string[];
   repoUrl: string;
+  totalTimeLogMinutes: number;
   subtasks: {
     id: string;
     status: string;
@@ -67,6 +68,21 @@ function formatLabel(value: string) {
     .split("_")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
+}
+
+function formatTimeLog(minutes: number) {
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+
+  if (hours && remainingMinutes) {
+    return `${hours}h ${remainingMinutes}m`;
+  }
+
+  if (hours) {
+    return `${hours}h`;
+  }
+
+  return `${remainingMinutes}m`;
 }
 
 function buildAnalytics(projects: Project[]) {
@@ -335,6 +351,8 @@ export default function DashboardPage() {
         );
       }
 
+      const projectId = result.data.id;
+
       if (
         !editingProjectId &&
         areGeneratedSubtasksConfirmed &&
@@ -348,7 +366,7 @@ export default function DashboardPage() {
                 subtask.description.trim().length > 0,
             )
             .map((subtask) =>
-              fetch(`/api/projects/${result.data.id}/subtasks`, {
+              fetch(`/api/projects/${projectId}/subtasks`, {
                 method: "POST",
                 headers: {
                   "Content-Type": "application/json",
@@ -423,8 +441,8 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(14,165,233,0.12),_transparent_28%),linear-gradient(180deg,_#020617_0%,_#0f172a_100%)] px-4 py-8 text-slate-100 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-6xl space-y-6">
+    <main className="scrollbar-hidden w-full overflow-x-hidden min-h-screen bg-[radial-gradient(circle_at_top,_rgba(14,165,233,0.12),_transparent_28%),linear-gradient(180deg,_#020617_0%,_#0f172a_100%)] px-4 py-8 text-slate-100 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-screen-2xl space-y-6">
         <section className="rounded-3xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -531,12 +549,26 @@ export default function DashboardPage() {
                     <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
                       {project.subtasks.length} subtasks
                     </span>
+                    <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 font-medium text-emerald-200">
+                      {formatTimeLog(project.totalTimeLogMinutes)} logged
+                    </span>
                     <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
                       {project.techStack.length
                         ? project.techStack.join(", ")
                         : "No tech stack"}
                     </span>
                   </div>
+
+                  {project.repoUrl ? (
+                    <a
+                      href={project.repoUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-4 block break-all text-sm text-sky-300 transition hover:text-sky-200 hover:underline"
+                    >
+                      {project.repoUrl}
+                    </a>
+                  ) : null}
 
                   <div className="mt-4 flex flex-wrap gap-3">
                     <Link

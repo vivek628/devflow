@@ -1,7 +1,10 @@
 import bcrypt from "bcryptjs";
 
-import { LoginInput, SignupInput } from "@/modules/auth/auth.schemas";
-import { createUser, findUserByEmail } from "@/modules/auth/auth.repository";
+import { LoginInput, SignupInput } from "@/modules/auth/core/auth.schemas";
+import {
+  createUser,
+  findUserByEmail,
+} from "@/modules/auth/core/auth.repository";
 
 export async function loginUser(input: LoginInput) {
   const user = await findUserByEmail(input.email);

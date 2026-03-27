@@ -1,22 +1,19 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { AuthShell } from "@/components/auth/auth-shell";
 import { getUserFacingErrorMessage } from "@/lib/utils/client-errors";
 
-type LoginFormData = {
+type ForgotPasswordFormData = {
   email: string;
-  password: string;
 };
 
-type LoginErrors = Partial<Record<keyof LoginFormData, string[]>>;
+type ForgotPasswordErrors = Partial<Record<keyof ForgotPasswordFormData, string[]>>;
 
-const initialFormData: LoginFormData = {
+const initialFormData: ForgotPasswordFormData = {
   email: "",
-  password: "",
 };
 
 async function readApiResponse<T>(response: Response): Promise<T> {
@@ -35,10 +32,10 @@ async function readApiResponse<T>(response: Response): Promise<T> {
   );
 }
 
-export default function LoginPage() {
+export default function ForgotPasswordPage() {
   const router = useRouter();
-  const [formData, setFormData] = useState<LoginFormData>(initialFormData);
-  const [fieldErrors, setFieldErrors] = useState<LoginErrors>({});
+  const [formData, setFormData] = useState(initialFormData);
+  const [fieldErrors, setFieldErrors] = useState<ForgotPasswordErrors>({});
   const [generalError, setGeneralError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -51,7 +48,7 @@ export default function LoginPage() {
     setSuccessMessage("");
 
     try {
-      const response = await fetch("/api/auth/login", {
+      const response = await fetch("/api/auth/forgot-password", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -62,7 +59,7 @@ export default function LoginPage() {
       const result = await readApiResponse<{
         success: boolean;
         message: string;
-        errors?: LoginErrors;
+        errors?: ForgotPasswordErrors;
       }>(response);
 
       if (!response.ok) {
@@ -70,47 +67,41 @@ export default function LoginPage() {
           setFieldErrors(result.errors);
         }
 
-        setGeneralError(result.message || "Unable to sign in");
+        setGeneralError(result.message || "Unable to send reset code");
         return;
       }
 
-      setSuccessMessage("Login successful. Redirecting...");
-      setFormData(initialFormData);
+      setSuccessMessage(result.message);
 
       window.setTimeout(() => {
-        router.push("/dashboard");
-      }, 1000);
+        router.push(`/reset-password?email=${encodeURIComponent(formData.email)}`);
+      }, 1200);
     } catch (error) {
-      setGeneralError(getUserFacingErrorMessage(error, "Unable to sign in"));
+      setGeneralError(
+        getUserFacingErrorMessage(error, "Unable to send reset code"),
+      );
     } finally {
       setIsSubmitting(false);
     }
   }
 
-  function updateField<K extends keyof LoginFormData>(
-    field: K,
-    value: LoginFormData[K],
-  ) {
-    setFormData((current) => ({
-      ...current,
-      [field]: value,
-    }));
-
-    setFieldErrors((current) => ({
-      ...current,
-      [field]: undefined,
-    }));
-  }
-
   return (
     <AuthShell
-      title="Login to your account"
-      subtitle="Continue managing your projects, priorities, and issues from one focused workspace."
-      footerText="Don't have an account?"
-      footerLinkText="Create one"
-      footerLinkHref="/signup"
+      title="Forgot your password?"
+      subtitle="Enter your email and we will send a 6-digit reset code that expires in 2 minutes."
+      footerText="Remembered your password?"
+      footerLinkText="Back to login"
+      footerLinkHref="/login"
     >
       <form className="space-y-5" onSubmit={handleSubmit}>
+        <button
+          type="button"
+          onClick={() => router.push("/login")}
+          className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-slate-100 transition hover:bg-white/10"
+        >
+          Back to login
+        </button>
+
         <div className="space-y-2">
           <label htmlFor="email" className="text-sm font-medium text-slate-200">
             Email address
@@ -119,40 +110,15 @@ export default function LoginPage() {
             id="email"
             type="email"
             value={formData.email}
-            onChange={(event) => updateField("email", event.target.value)}
+            onChange={(event) => {
+              setFormData({ email: event.target.value });
+              setFieldErrors({});
+            }}
             placeholder="you@example.com"
             className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-sky-400 focus:ring-2 focus:ring-sky-400/20"
           />
           {fieldErrors.email && (
             <p className="text-sm text-rose-300">{fieldErrors.email[0]}</p>
-          )}
-        </div>
-
-        <div className="space-y-2">
-          <div className="flex items-center justify-between gap-3">
-            <label
-              htmlFor="password"
-              className="text-sm font-medium text-slate-200"
-            >
-              Password
-            </label>
-            <Link
-              href="/forgot-password"
-              className="text-xs font-medium text-sky-300 transition hover:text-sky-200"
-            >
-              Forgot password?
-            </Link>
-          </div>
-          <input
-            id="password"
-            type="password"
-            value={formData.password}
-            onChange={(event) => updateField("password", event.target.value)}
-            placeholder="Enter your password"
-            className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-sky-400 focus:ring-2 focus:ring-sky-400/20"
-          />
-          {fieldErrors.password && (
-            <p className="text-sm text-rose-300">{fieldErrors.password[0]}</p>
           )}
         </div>
 
@@ -173,7 +139,7 @@ export default function LoginPage() {
           disabled={isSubmitting}
           className="w-full rounded-2xl bg-sky-400 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-sky-300 disabled:cursor-not-allowed disabled:opacity-70"
         >
-          {isSubmitting ? "Signing in..." : "Sign in"}
+          {isSubmitting ? "Sending code..." : "Send reset code"}
         </button>
       </form>
     </AuthShell>

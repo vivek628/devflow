@@ -1,6 +1,7 @@
 import {
   createProjectForOwner,
   createSubtaskForProject,
+  createUpdateForSubtask,
   deleteProjectById,
   deleteSubtaskById,
   findProjectByIdForOwner,
@@ -12,9 +13,35 @@ import {
 import {
   CreateProjectInput,
   CreateSubtaskInput,
+  CreateSubtaskUpdateInput,
   UpdateProjectInput,
   UpdateSubtaskInput,
 } from "@/modules/projects/projects.schemas";
+
+export function mapSubtaskUpdate(update: {
+  id: string;
+  summary: string;
+  timeLogMinutes: number;
+  loggedAt: Date;
+}) {
+  return {
+    id: update.id,
+    summary: update.summary,
+    timeLogMinutes: update.timeLogMinutes,
+    loggedAt: update.loggedAt.toISOString(),
+  };
+}
+
+function getTotalLoggedMinutes(
+  updates?: Array<{
+    timeLogMinutes: number;
+  }>,
+) {
+  return (updates ?? []).reduce(
+    (total, update) => total + update.timeLogMinutes,
+    0,
+  );
+}
 
 export function mapSubtask(subtask: {
   id: string;
@@ -23,6 +50,12 @@ export function mapSubtask(subtask: {
   status: string;
   priority: string;
   dueDate: Date | null;
+  updates?: Array<{
+    id: string;
+    summary: string;
+    timeLogMinutes: number;
+    loggedAt: Date;
+  }>;
 }) {
   return {
     id: subtask.id,
@@ -31,6 +64,8 @@ export function mapSubtask(subtask: {
     status: subtask.status,
     priority: subtask.priority,
     dueDate: subtask.dueDate?.toISOString() ?? null,
+    totalTimeLogMinutes: getTotalLoggedMinutes(subtask.updates),
+    updates: (subtask.updates ?? []).map(mapSubtaskUpdate),
   };
 }
 
@@ -48,8 +83,16 @@ export function mapProject(project: {
     status: string;
     priority: string;
     dueDate: Date | null;
+    updates?: Array<{
+      id: string;
+      summary: string;
+      timeLogMinutes: number;
+      loggedAt: Date;
+    }>;
   }>;
 }) {
+  const mappedSubtasks = project.subtasks.map(mapSubtask);
+
   return {
     id: project.id,
     name: project.title,
@@ -57,7 +100,11 @@ export function mapProject(project: {
     status: project.status,
     techStack: project.techStack,
     repoUrl: project.repoUrl ?? "",
-    subtasks: project.subtasks.map(mapSubtask),
+    totalTimeLogMinutes: mappedSubtasks.reduce(
+      (total, subtask) => total + subtask.totalTimeLogMinutes,
+      0,
+    ),
+    subtasks: mappedSubtasks,
   };
 }
 
@@ -146,4 +193,20 @@ export async function removeSubtask(
 
   await deleteSubtaskById(subtask.id);
   return true;
+}
+
+export async function createSubtaskUpdate(
+  projectId: string,
+  subtaskId: string,
+  ownerId: string,
+  input: CreateSubtaskUpdateInput,
+) {
+  const subtask = await findSubtaskByIdForOwner(projectId, subtaskId, ownerId);
+
+  if (!subtask) {
+    return null;
+  }
+
+  const update = await createUpdateForSubtask(subtask.id, input);
+  return mapSubtaskUpdate(update);
 }

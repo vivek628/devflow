@@ -1,6 +1,7 @@
 export {
   createProjectSchema,
   createSubtaskSchema,
+  createSubtaskUpdateSchema,
   projectStatusSchema,
   subtaskPrioritySchema,
   subtaskStatusSchema,
@@ -8,6 +9,7 @@ export {
   updateSubtaskSchema,
   type CreateProjectInput,
   type CreateSubtaskInput,
+  type CreateSubtaskUpdateInput,
   type UpdateProjectInput,
   type UpdateSubtaskInput,
 } from "@/modules/projects";

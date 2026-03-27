@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import { ProfileMenu } from "@/components/layout/profile-menu";
@@ -15,6 +15,15 @@ type Subtask = {
   status: string;
   priority: string;
   dueDate: string | null;
+  totalTimeLogMinutes: number;
+  updates: SubtaskUpdate[];
+};
+
+type SubtaskUpdate = {
+  id: string;
+  summary: string;
+  timeLogMinutes: number;
+  loggedAt: string;
 };
 
 type Project = {
@@ -24,6 +33,7 @@ type Project = {
   status: string;
   techStack: string[];
   repoUrl: string;
+  totalTimeLogMinutes: number;
   subtasks: Subtask[];
 };
 
@@ -41,6 +51,13 @@ const emptySubtaskForm = {
   status: "BACKLOG",
   priority: "MEDIUM",
   dueDate: "",
+};
+
+const emptySubtaskUpdateForm = {
+  summary: "",
+  timeLog: "00:30",
+  loggedDate: new Date().toISOString().slice(0, 10),
+  loggedTime: new Date().toTimeString().slice(0, 5),
 };
 
 const emptyProjectForm: ProjectFormState = {
@@ -106,6 +123,119 @@ function getDueDateBuckets(subtasks: Subtask[]) {
   return { overdue, dueSoon, noDueDate };
 }
 
+function formatTimeLog(minutes: number) {
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+
+  if (hours && remainingMinutes) {
+    return `${hours}h ${remainingMinutes}m`;
+  }
+
+  if (hours) {
+    return `${hours}h`;
+  }
+
+  return `${remainingMinutes}m`;
+}
+
+function parseTimeLogToMinutes(value: string) {
+  const [hoursText = "0", minutesText = "0"] = value.split(":");
+  const hours = Number(hoursText);
+  const minutes = Number(minutesText);
+
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+    return 0;
+  }
+
+  return hours * 60 + minutes;
+}
+
+function combineDateAndTime(date: string, time: string) {
+  if (!date) {
+    return "";
+  }
+
+  return `${date}T${time || "00:00"}`;
+}
+
+type PickerInputProps = {
+  label: string;
+  type: "date" | "time";
+  value: string;
+  onChange: (value: string) => void;
+  required?: boolean;
+  step?: string;
+};
+
+function PickerInput({
+  label,
+  type,
+  value,
+  onChange,
+  required = false,
+  step,
+}: PickerInputProps) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const icon = type === "date" ? (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <rect x="3.5" y="5" width="17" height="15" rx="2" />
+      <path d="M7 3.5V7" />
+      <path d="M17 3.5V7" />
+      <path d="M3.5 9.5H20.5" />
+    </svg>
+  ) : (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.5V12L15.5 14" />
+    </svg>
+  );
+
+  function openPicker() {
+    const element = inputRef.current;
+
+    if (!element) {
+      return;
+    }
+
+    const pickerElement = element as HTMLInputElement & {
+      showPicker?: () => void;
+    };
+
+    if (pickerElement.showPicker) {
+      pickerElement.showPicker();
+      return;
+    }
+
+    element.focus();
+    element.click();
+  }
+
+  return (
+    <label className="grid gap-2">
+      <span className="text-sm font-medium text-slate-300">{label}</span>
+      <div className="relative">
+        <input
+          ref={inputRef}
+          required={required}
+          type={type}
+          step={step}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="dark-picker-input w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 pr-12 text-sm text-white outline-none"
+        />
+        <button
+          type="button"
+          aria-label={`Open ${label}`}
+          onClick={openPicker}
+          className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-slate-300 transition hover:bg-white/10 hover:text-white"
+        >
+          <span className="pointer-events-none h-4 w-4">{icon}</span>
+        </button>
+      </div>
+    </label>
+  );
+}
+
 export default function ProjectDetailPage() {
   const params = useParams<{ projectId: string }>();
   const router = useRouter();
@@ -116,9 +246,11 @@ export default function ProjectDetailPage() {
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [editingSubtaskId, setEditingSubtaskId] = useState<string | null>(null);
   const [deleteTargetSubtask, setDeleteTargetSubtask] = useState<Subtask | null>(null);
+  const [updateTargetSubtask, setUpdateTargetSubtask] = useState<Subtask | null>(null);
   const [isDeleteProjectModalOpen, setIsDeleteProjectModalOpen] = useState(false);
   const [subtaskForm, setSubtaskForm] = useState(emptySubtaskForm);
   const [projectForm, setProjectForm] = useState(emptyProjectForm);
+  const [subtaskUpdateForm, setSubtaskUpdateForm] = useState(emptySubtaskUpdateForm);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const dueDateBuckets = project
@@ -181,6 +313,13 @@ export default function ProjectDetailPage() {
     setProjectForm((current) => ({ ...current, [field]: value }));
   }
 
+  function updateSubtaskUpdateForm(
+    field: keyof typeof emptySubtaskUpdateForm,
+    value: string,
+  ) {
+    setSubtaskUpdateForm((current) => ({ ...current, [field]: value }));
+  }
+
   function openEditProjectModal() {
     if (!project) {
       return;
@@ -223,6 +362,21 @@ export default function ProjectDetailPage() {
     setEditingSubtaskId(null);
     setSubtaskForm(emptySubtaskForm);
     setIsSubtaskModalOpen(false);
+  }
+
+  function openSubtaskUpdateModal(subtask: Subtask) {
+    setUpdateTargetSubtask(subtask);
+    setSubtaskUpdateForm({
+      summary: "",
+      timeLog: "00:30",
+      loggedDate: new Date().toISOString().slice(0, 10),
+      loggedTime: new Date().toTimeString().slice(0, 5),
+    });
+  }
+
+  function closeSubtaskUpdateModal() {
+    setUpdateTargetSubtask(null);
+    setSubtaskUpdateForm(emptySubtaskUpdateForm);
   }
 
   async function handleUpdateProject(event: React.FormEvent<HTMLFormElement>) {
@@ -402,9 +556,77 @@ export default function ProjectDetailPage() {
     }
   }
 
+  async function handleCreateSubtaskUpdate(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!project || !updateTargetSubtask) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    setErrorMessage("");
+
+    try {
+      const response = await fetch(
+        `/api/projects/${project.id}/subtasks/${updateTargetSubtask.id}/updates`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            summary: subtaskUpdateForm.summary,
+            timeLogMinutes: parseTimeLogToMinutes(subtaskUpdateForm.timeLog),
+            loggedAt: combineDateAndTime(
+              subtaskUpdateForm.loggedDate,
+              subtaskUpdateForm.loggedTime,
+            ),
+          }),
+        },
+      );
+
+      const result = await readApiResponse<{
+        success: boolean;
+        message?: string;
+        data?: SubtaskUpdate;
+      }>(response);
+
+      if (!response.ok || !result.data) {
+        throw new Error(result.message || "Unable to save task update");
+      }
+
+      setProject((current) =>
+        current
+          ? {
+              ...current,
+              totalTimeLogMinutes:
+                current.totalTimeLogMinutes + result.data!.timeLogMinutes,
+              subtasks: current.subtasks.map((subtask) =>
+                subtask.id === updateTargetSubtask.id
+                  ? {
+                      ...subtask,
+                      totalTimeLogMinutes:
+                        subtask.totalTimeLogMinutes + result.data!.timeLogMinutes,
+                      updates: [result.data!, ...subtask.updates],
+                    }
+                  : subtask,
+              ),
+            }
+          : current,
+      );
+
+      closeSubtaskUpdateModal();
+    } catch (error) {
+      setErrorMessage(getUserFacingErrorMessage(error, "Unable to save task update"));
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(14,165,233,0.12),_transparent_28%),linear-gradient(180deg,_#020617_0%,_#0f172a_100%)] px-4 py-8 text-slate-100 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-5xl space-y-6">
+    <main className="scrollbar-hidden w-full overflow-x-hidden min-h-screen bg-[radial-gradient(circle_at_top,_rgba(14,165,233,0.12),_transparent_28%),linear-gradient(180deg,_#020617_0%,_#0f172a_100%)] px-4 py-8 text-slate-100 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-screen-2xl space-y-6">
         <section className="rounded-3xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <Link
@@ -466,6 +688,9 @@ export default function ProjectDetailPage() {
                 <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300">
                   {project.subtasks.length} subtasks
                 </span>
+                <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-medium text-emerald-200">
+                  Total logged: {formatTimeLog(project.totalTimeLogMinutes)}
+                </span>
               </div>
 
               <div className="mt-5 grid gap-4 md:grid-cols-2">
@@ -479,9 +704,20 @@ export default function ProjectDetailPage() {
                 </div>
                 <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-4">
                   <p className="text-sm font-medium text-slate-400">Repository</p>
-                  <p className="mt-2 break-all text-sm leading-6 text-white">
-                    {project.repoUrl || "Not added yet"}
-                  </p>
+                  {project.repoUrl ? (
+                    <a
+                      href={project.repoUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-2 block break-all text-sm leading-6 text-sky-300 transition hover:text-sky-200 hover:underline"
+                    >
+                      {project.repoUrl}
+                    </a>
+                  ) : (
+                    <p className="mt-2 break-all text-sm leading-6 text-white">
+                      Not added yet
+                    </p>
+                  )}
                 </div>
               </div>
             </>
@@ -632,6 +868,19 @@ export default function ProjectDetailPage() {
                           Due: {new Date(subtask.dueDate).toLocaleDateString()}
                         </span>
                       ) : null}
+                      <span className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300">
+                        {subtask.updates.length} updates logged
+                      </span>
+                      <span className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-sm font-medium text-emerald-200">
+                        Total time: {formatTimeLog(subtask.totalTimeLogMinutes)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => openSubtaskUpdateModal(subtask)}
+                        className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-400/20"
+                      >
+                        Add Update
+                      </button>
                       <button
                         type="button"
                         onClick={() => openEditSubtask(subtask)}
@@ -646,6 +895,42 @@ export default function ProjectDetailPage() {
                       >
                         Delete
                       </button>
+                    </div>
+
+                    <div className="mt-4 rounded-2xl border border-white/10 bg-slate-950/50 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-medium text-slate-300">Progress log</p>
+                        <p className="text-xs text-slate-500">
+                          Track feature work and time spent
+                        </p>
+                      </div>
+
+                      <div className="mt-3 grid gap-3">
+                        {subtask.updates.length ? (
+                          subtask.updates.map((update) => (
+                            <div
+                              key={update.id}
+                              className="rounded-2xl border border-white/10 bg-white/5 p-3"
+                            >
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-medium text-emerald-200">
+                                  {formatTimeLog(update.timeLogMinutes)}
+                                </span>
+                                <span className="text-xs text-slate-500">
+                                  {new Date(update.loggedAt).toLocaleString()}
+                                </span>
+                              </div>
+                              <p className="mt-3 text-sm leading-6 text-slate-200">
+                                {update.summary}
+                              </p>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-sm text-slate-400">
+                            No updates yet. Log the first feature update for this subtask.
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))
@@ -722,11 +1007,11 @@ export default function ProjectDetailPage() {
                   <option value="CRITICAL">Critical</option>
                 </select>
               </div>
-              <input
+              <PickerInput
+                label="Due date"
                 type="date"
                 value={subtaskForm.dueDate}
-                onChange={(event) => updateSubtaskForm("dueDate", event.target.value)}
-                className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none"
+                onChange={(value) => updateSubtaskForm("dueDate", value)}
               />
 
               <div className="flex justify-end gap-3 border-t border-white/10 pt-5">
@@ -907,6 +1192,87 @@ export default function ProjectDetailPage() {
                 Delete
               </button>
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {updateTargetSubtask ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4 py-8 backdrop-blur-sm">
+          <div className="w-full max-w-xl rounded-3xl border border-white/10 bg-slate-950 shadow-2xl">
+            <form className="grid gap-5 p-6 sm:p-8" onSubmit={handleCreateSubtaskUpdate}>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-emerald-300">Task Update</p>
+                  <h2 className="mt-1 text-2xl font-semibold text-white">
+                    Log work for {updateTargetSubtask.title}
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeSubtaskUpdateModal}
+                  className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300"
+                >
+                  Close
+                </button>
+              </div>
+
+              <textarea
+                required
+                rows={4}
+                value={subtaskUpdateForm.summary}
+                onChange={(event) =>
+                  updateSubtaskUpdateForm("summary", event.target.value)
+                }
+                placeholder="What feature or progress did you complete?"
+                className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500"
+              />
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <PickerInput
+                  label="Time log"
+                  type="time"
+                  required
+                  step="60"
+                  value={subtaskUpdateForm.timeLog}
+                  onChange={(value) => updateSubtaskUpdateForm("timeLog", value)}
+                />
+                <PickerInput
+                  label="Logged date"
+                  type="date"
+                  value={subtaskUpdateForm.loggedDate}
+                  onChange={(value) => updateSubtaskUpdateForm("loggedDate", value)}
+                />
+              </div>
+
+              <PickerInput
+                label="Logged time"
+                type="time"
+                step="60"
+                value={subtaskUpdateForm.loggedTime}
+                onChange={(value) => updateSubtaskUpdateForm("loggedTime", value)}
+              />
+
+              <p className="text-xs text-slate-500">
+                Use the picker controls for duration, date, and time instead of typing minutes manually.
+              </p>
+
+              <div className="flex justify-end gap-3 border-t border-white/10 pt-5">
+                <button
+                  type="button"
+                  onClick={closeSubtaskUpdateModal}
+                  className="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-slate-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="rounded-2xl bg-emerald-400 px-5 py-3 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {isSubmitting ? "Saving..." : "Save Update"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       ) : null}
