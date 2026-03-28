@@ -627,16 +627,18 @@ export default function ProjectDetailPage() {
   return (
     <main className="scrollbar-hidden w-full overflow-x-hidden min-h-screen bg-[radial-gradient(circle_at_top,_rgba(14,165,233,0.12),_transparent_28%),linear-gradient(180deg,_#020617_0%,_#0f172a_100%)] px-4 py-8 text-slate-100 sm:px-6 lg:px-8">
       <div className="mx-auto w-full max-w-screen-2xl space-y-6">
-        <section className="rounded-3xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur">
-          <div className="flex flex-wrap items-start justify-between gap-4">
+        <section className="relative z-20 rounded-3xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur">
+          <div className="absolute right-4 top-4 sm:right-8 sm:top-8">
+            <ProfileMenu />
+          </div>
+
+          <div className="pr-20 sm:pr-48 lg:pr-56">
             <Link
               href="/dashboard"
               className="inline-flex rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-slate-300"
             >
               Back to Dashboard
             </Link>
-
-            <ProfileMenu />
           </div>
 
           {errorMessage ? (

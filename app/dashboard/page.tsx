@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { ProfileMenu } from "@/components/layout/profile-menu";
 import { badgeTone } from "@/lib/projects/project-store";
@@ -147,6 +148,7 @@ function buildAnalytics(projects: Project[]) {
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectForm, setProjectForm] = useState(emptyProjectForm);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
@@ -313,8 +315,20 @@ export default function DashboardPage() {
 
   async function handleSaveProject(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setIsSubmitting(true);
     setErrorMessage("");
+
+    if (
+      !editingProjectId &&
+      generatedSubtasks.length > 0 &&
+      !areGeneratedSubtasksConfirmed
+    ) {
+      setErrorMessage(
+        "Confirm the AI subtasks before saving, or remove them if you do not want to include them.",
+      );
+      return;
+    }
+
+    setIsSubmitting(true);
 
     try {
       const response = await fetch(
@@ -443,8 +457,12 @@ export default function DashboardPage() {
   return (
     <main className="scrollbar-hidden w-full overflow-x-hidden min-h-screen bg-[radial-gradient(circle_at_top,_rgba(14,165,233,0.12),_transparent_28%),linear-gradient(180deg,_#020617_0%,_#0f172a_100%)] px-4 py-8 text-slate-100 sm:px-6 lg:px-8">
       <div className="mx-auto w-full max-w-screen-2xl space-y-6">
-        <section className="rounded-3xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur">
-          <div className="flex flex-wrap items-start justify-between gap-4">
+        <section className="relative z-20 rounded-3xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur">
+          <div className="absolute right-4 top-4 sm:right-8 sm:top-8">
+            <ProfileMenu />
+          </div>
+
+          <div className="pr-20 sm:pr-48 lg:pr-56">
             <div>
               <p className="inline-flex rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-sky-300">
                 DevFlow Dashboard
@@ -457,8 +475,6 @@ export default function DashboardPage() {
                 own subtasks directly from the database.
               </p>
             </div>
-
-            <ProfileMenu />
           </div>
 
           {errorMessage ? (
@@ -525,7 +541,16 @@ export default function DashboardPage() {
               {projects.map((project) => (
                 <div
                   key={project.id}
-                  className="rounded-2xl border border-white/10 bg-slate-950/40 p-4"
+                  role="link"
+                  tabIndex={0}
+                  onClick={() => router.push(`/projects/${project.id}`)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      router.push(`/projects/${project.id}`);
+                    }
+                  }}
+                  className="cursor-pointer rounded-2xl border border-white/10 bg-slate-950/40 p-4 transition hover:border-sky-400/30 hover:bg-slate-950/60 focus:outline-none focus:ring-2 focus:ring-sky-400/40"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <Link href={`/projects/${project.id}`} className="block min-w-0 flex-1">
@@ -564,6 +589,7 @@ export default function DashboardPage() {
                       href={project.repoUrl}
                       target="_blank"
                       rel="noreferrer"
+                      onClick={(event) => event.stopPropagation()}
                       className="mt-4 block break-all text-sm text-sky-300 transition hover:text-sky-200 hover:underline"
                     >
                       {project.repoUrl}
@@ -573,20 +599,27 @@ export default function DashboardPage() {
                   <div className="mt-4 flex flex-wrap gap-3">
                     <Link
                       href={`/projects/${project.id}`}
+                      onClick={(event) => event.stopPropagation()}
                       className="rounded-2xl bg-sky-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-sky-300"
                     >
                       Open
                     </Link>
                     <button
                       type="button"
-                      onClick={() => openEditProjectModal(project)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openEditProjectModal(project);
+                      }}
                       className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:bg-white/10"
                     >
                       Update
                     </button>
                     <button
                       type="button"
-                      onClick={() => confirmDeleteProject(project)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        confirmDeleteProject(project);
+                      }}
                       className="rounded-2xl border border-rose-400/20 bg-rose-400/10 px-4 py-2 text-sm font-semibold text-rose-200 transition hover:bg-rose-400/20"
                     >
                       Delete
@@ -812,7 +845,7 @@ export default function DashboardPage() {
                         >
                           {areGeneratedSubtasksConfirmed
                             ? "Confirmed. These subtasks will be created when you save the project."
-                            : "Review and confirm these AI subtasks before saving the project."}
+                            : "Review and confirm these AI subtasks before saving the project. Unconfirmed suggestions cannot be saved."}
                         </div>
                       </div>
                     ) : null}
@@ -836,7 +869,12 @@ export default function DashboardPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={
+                    isSubmitting ||
+                    (!editingProjectId &&
+                      generatedSubtasks.length > 0 &&
+                      !areGeneratedSubtasksConfirmed)
+                  }
                   className="rounded-2xl bg-sky-400 px-5 py-3 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {isSubmitting
