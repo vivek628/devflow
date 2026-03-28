@@ -22,7 +22,7 @@ export const subtaskPrioritySchema = z.enum([
 ]);
 
 export const createProjectSchema = z.object({
-  title: z.string().trim().min(2, "Project name is required").max(80),
+  title: z.string().trim().min(2, "Project name must be at least 2 characters").max(80),
   description: z
     .string()
     .trim()
