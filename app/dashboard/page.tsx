@@ -86,6 +86,10 @@ function formatTimeLog(minutes: number) {
   return `${remainingMinutes}m`;
 }
 
+function formatCountLabel(count: number, singular: string, plural: string) {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
 function buildAnalytics(projects: Project[]) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -529,7 +533,7 @@ export default function DashboardPage() {
               </h2>
             </div>
             <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300">
-              {projects.length} projects
+              {formatCountLabel(projects.length, "project", "projects")}
             </span>
           </div>
 
@@ -573,7 +577,11 @@ export default function DashboardPage() {
 
                   <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-300">
                     <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
-                      {project.subtasks.length} subtasks
+                      {formatCountLabel(
+                        project.subtasks.length,
+                        "subtask",
+                        "subtasks",
+                      )}
                     </span>
                     <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 font-medium text-emerald-200">
                       {formatTimeLog(project.totalTimeLogMinutes)} logged
@@ -879,7 +887,9 @@ export default function DashboardPage() {
                   className="rounded-2xl bg-sky-400 px-5 py-3 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {isSubmitting
-                    ? "Saving..."
+                    ? editingProjectId
+                      ? "Saving changes..."
+                      : "Saving project..."
                     : editingProjectId
                       ? "Update Project"
                       : areGeneratedSubtasksConfirmed && generatedSubtasks.length > 0
