@@ -471,8 +471,9 @@ export default function DashboardPage() {
                 Create a project, then open it to manage subtasks.
               </h1>
               <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-300 sm:text-base">
-                Projects now come from MongoDB, and each project page will load its
-                own subtasks directly from the database.
+                {projects.length === 0
+                  ? "Create your first project to organize your work, manage tasks step by step, and use AI to generate subtasks from your project description."
+                  : "Open a project to track progress, manage subtasks, log work updates, and keep your development workflow organized in one place."}
               </p>
             </div>
           </div>
