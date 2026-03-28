@@ -26,6 +26,7 @@ export function ProfileMenu() {
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [sessionUser, setSessionUser] = useState<SessionUser | null>(null);
+  const [isSessionLoading, setIsSessionLoading] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
@@ -46,10 +47,12 @@ export function ProfileMenu() {
 
         if (isMounted) {
           setSessionUser(result.data);
+          setIsSessionLoading(false);
         }
       } catch {
         if (isMounted) {
           setSessionUser(null);
+          setIsSessionLoading(false);
         }
       }
     }
@@ -62,13 +65,17 @@ export function ProfileMenu() {
   }, []);
 
   const initials = useMemo(() => {
+    if (isSessionLoading) {
+      return "";
+    }
+
     const source = sessionUser?.name?.trim() || sessionUser?.email?.trim() || "U";
     return source
       .split(/\s+/)
       .slice(0, 2)
       .map((part) => part.charAt(0).toUpperCase())
       .join("");
-  }, [sessionUser]);
+  }, [isSessionLoading, sessionUser]);
 
   async function handleLogout() {
     setIsLoggingOut(true);
@@ -92,14 +99,18 @@ export function ProfileMenu() {
         className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-left transition hover:bg-white/10"
       >
         <span className="flex h-10 w-10 items-center justify-center rounded-full bg-sky-400 text-sm font-semibold text-slate-950">
-          {initials}
+          {isSessionLoading ? (
+            <span className="h-4 w-4 animate-pulse rounded-full bg-slate-950/25" />
+          ) : (
+            initials
+          )}
         </span>
         <span className="hidden min-w-0 sm:block">
           <span className="block truncate text-sm font-semibold text-white">
-            {sessionUser?.name || "My Profile"}
+            {isSessionLoading ? "Loading..." : sessionUser?.name || "My Profile"}
           </span>
           <span className="block truncate text-xs text-slate-400">
-            {sessionUser?.email || "Account"}
+            {isSessionLoading ? "Please wait" : sessionUser?.email || "Account"}
           </span>
         </span>
       </button>

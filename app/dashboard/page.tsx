@@ -63,6 +63,24 @@ async function readApiResponse<T>(response: Response): Promise<T> {
   );
 }
 
+function getApiErrorMessage(
+  result: {
+    message?: string;
+    errors?: Record<string, string[] | undefined>;
+  },
+  fallbackMessage: string,
+) {
+  const firstFieldError = Object.values(result.errors ?? {}).find(
+    (messages) => Array.isArray(messages) && messages.length > 0,
+  )?.[0];
+
+  if (firstFieldError) {
+    return firstFieldError;
+  }
+
+  return result.message || fallbackMessage;
+}
+
 function formatLabel(value: string) {
   return value
     .toLowerCase()
@@ -218,6 +236,7 @@ export default function DashboardPage() {
   }
 
   function openCreateProjectModal() {
+    setErrorMessage("");
     setEditingProjectId(null);
     setProjectForm(emptyProjectForm);
     setGeneratedSubtasks([]);
@@ -226,6 +245,7 @@ export default function DashboardPage() {
   }
 
   function openEditProjectModal(project: Project) {
+    setErrorMessage("");
     setEditingProjectId(project.id);
     setProjectForm({
       title: project.name,
@@ -237,6 +257,15 @@ export default function DashboardPage() {
     setGeneratedSubtasks([]);
     setAreGeneratedSubtasksConfirmed(false);
     setIsProjectModalOpen(true);
+  }
+
+  function closeProjectModal() {
+    setErrorMessage("");
+    setIsProjectModalOpen(false);
+    setEditingProjectId(null);
+    setProjectForm(emptyProjectForm);
+    setGeneratedSubtasks([]);
+    setAreGeneratedSubtasksConfirmed(false);
   }
 
   function updateGeneratedSubtask(
@@ -360,12 +389,15 @@ export default function DashboardPage() {
         success: boolean;
         message?: string;
         data?: Project;
+        errors?: Record<string, string[] | undefined>;
       }>(response);
 
       if (!response.ok || !result.data) {
         throw new Error(
-          result.message ||
+          getApiErrorMessage(
+            result,
             (editingProjectId ? "Unable to update project" : "Unable to create project"),
+          ),
         );
       }
 
@@ -657,13 +689,7 @@ export default function DashboardPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    setIsProjectModalOpen(false);
-                    setEditingProjectId(null);
-                    setProjectForm(emptyProjectForm);
-                    setGeneratedSubtasks([]);
-                    setAreGeneratedSubtasksConfirmed(false);
-                  }}
+                  onClick={closeProjectModal}
                   className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300"
                 >
                   Close
@@ -671,6 +697,12 @@ export default function DashboardPage() {
               </div>
 
               <div className="grid min-h-0 flex-1 gap-5 overflow-y-auto px-6 py-5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden sm:px-8">
+                {errorMessage ? (
+                  <div className="rounded-2xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-200">
+                    {errorMessage}
+                  </div>
+                ) : null}
+
                 <input
                   required
                   value={projectForm.title}
@@ -865,13 +897,7 @@ export default function DashboardPage() {
               <div className="flex justify-end gap-3 border-t border-white/10 bg-slate-950 px-6 py-5 sm:px-8">
                 <button
                   type="button"
-                  onClick={() => {
-                    setIsProjectModalOpen(false);
-                    setEditingProjectId(null);
-                    setProjectForm(emptyProjectForm);
-                    setGeneratedSubtasks([]);
-                    setAreGeneratedSubtasksConfirmed(false);
-                  }}
+                  onClick={closeProjectModal}
                   className="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-slate-100"
                 >
                   Cancel
