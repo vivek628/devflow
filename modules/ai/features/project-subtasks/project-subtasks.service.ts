@@ -16,7 +16,7 @@ type GeneratedProjectSubtasksPayload = {
 export async function generateProjectSubtasks(
   input: GenerateProjectSubtasksInput,
 ) {
-  const model = process.env.GEMINI_PROJECT_MODEL || "gemini-2.5-flash";
+  const model = process.env.GEMINI_PROJECT_MODEL || "gemini-3-flash-preview";
   const result = await generateGeminiJson({
     model,
     contents: buildProjectSubtasksPrompt(input),
